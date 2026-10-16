@@ -115,6 +115,12 @@
       "skillPath": "skills/general-video/SKILL.md",
       "computedHash": "2ab2f937386bbe6c54f795460737ea768a90406b965e5c32ae0fa8ab9d486707"
     },
+    "gpt-image": {
+      "source": "GENEXIS-AI/gpt-image-skill",
+      "sourceType": "github",
+      "skillPath": "gpt-image/SKILL.md",
+      "computedHash": "0068ff1f12b2cf62c52da164a2a6d830d097a245ae6dcd4d0067cec269401287"
+    },
     "gpt-taste": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
