@@ -23,3 +23,8 @@ cd app && python3 -m http.server 8000   # http://localhost:8000
 node --test                              # scheduler / stats 단위 테스트
 ```
 파일을 수정하면 `sw.js`의 `VERSION`을 올려야 설치된 앱이 새 파일을 받습니다.
+
+## 단일 파일 버전 (더블클릭으로 열기)
+`app/review.html` 하나만 있으면 PC 브라우저에서 더블클릭으로 바로 열립니다 (서버 불필요).
+코드를 수정한 뒤에는 `node app/build-single.mjs`로 다시 생성하세요.
+단, 파일로 열면 홈 화면 설치와 오프라인 캐시(서비스 워커)는 동작하지 않습니다 — 아이폰용은 HTTPS 호스팅이 필요합니다.

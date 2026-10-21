@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>망각곡선 복습</title>
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="복습">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%236d65ff%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%234338ca%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20fill%3D%22url(%23g)%22%2F%3E%3Cpath%20d%3D%22M96%20120%20C150%20120%20190%20200%20256%20300%20C320%20390%20362%20400%20416%20400%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-opacity%3D%22.28%22%20stroke-width%3D%2222%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M96%20120%20C130%20120%20150%20250%20190%20300%20C210%20325%20230%20330%20256%20330%20C300%20330%20316%20215%20340%20190%20C360%20170%20380%20170%20416%20170%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%2226%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22190%22%20cy%3D%22300%22%20r%3D%2216%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%22340%22%20cy%3D%22190%22%20r%3D%2216%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E">
+<style>
+:root {
+  --bg: #f4f5f9; --surface: #ffffff; --text: #151826; --muted: #6b7185; --line: #e4e6ee;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eceafd;
+  --again: #e5484d; --hard: #e08a1e; --good: #2f9e63; --easy: #3b82f6;
+  --new: #3b82f6; --learn: #e5484d; --rev: #2f9e63;
+  --shadow: 0 6px 24px rgba(30, 30, 80, .10);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1117; --surface: #181b24; --text: #eceef6; --muted: #98a0b8; --line: #2a2e3b;
+    --accent: #7c75ff; --accent-ink: #0f1117; --accent-soft: #23223f;
+    --again: #ff6369; --hard: #f2a444; --good: #46c382; --easy: #6aa3ff;
+    --new: #6aa3ff; --learn: #ff6369; --rev: #46c382;
+    --shadow: 0 6px 24px rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; overscroll-behavior-y: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+input, textarea { font: inherit; color: inherit; }
+
+#bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px) 8px calc(env(safe-area-inset-left) + 12px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 5; min-height: 52px;
+}
+#title { flex: 1; margin: 0; font-size: 20px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#actions { display: flex; gap: 2px; }
+.icon { width: 40px; height: 40px; border-radius: 12px; font-size: 22px; line-height: 1; display: grid; place-items: center; }
+.icon:active { background: var(--line); }
+#back { font-size: 32px; padding-bottom: 4px; margin-left: -6px; }
+
+#view {
+  flex: 1; width: 100%; max-width: 640px; margin: 0 auto; outline: none;
+  padding: 8px calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 24px) calc(env(safe-area-inset-left) + 16px);
+  display: flex; flex-direction: column;
+}
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.item {
+  background: var(--surface); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+}
+.item:active { transform: scale(.985); }
+.item .name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .sub { color: var(--muted); font-size: 13px; font-weight: 400; }
+.counts { display: flex; gap: 10px; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; }
+.n-new { color: var(--new); } .n-learn { color: var(--learn); } .n-rev { color: var(--rev); }
+.zero { opacity: .35; }
+
+.empty { text-align: center; color: var(--muted); margin: auto; padding: 40px 12px; }
+.empty .big { font-size: 56px; margin-bottom: 8px; }
+.empty h2 { color: var(--text); margin: 0 0 6px; font-size: 20px; }
+
+.primary, .ghost, .danger {
+  padding: 12px 18px; border-radius: 14px; font-weight: 600; min-height: 46px;
+}
+.primary { background: var(--accent); color: var(--accent-ink); }
+.ghost { background: var(--accent-soft); color: var(--accent); }
+.danger { background: color-mix(in srgb, var(--again) 14%, transparent); color: var(--again); }
+.primary:active, .ghost:active, .danger:active { filter: brightness(.92); transform: scale(.98); }
+.fab {
+  position: fixed; right: calc(env(safe-area-inset-right) + 18px); bottom: calc(env(safe-area-inset-bottom) + 18px);
+  width: 58px; height: 58px; border-radius: 20px; background: var(--accent); color: var(--accent-ink);
+  font-size: 30px; box-shadow: 0 10px 30px rgba(79, 70, 229, .45);
+}
+
+/* 복습 */
+.progress { height: 5px; background: var(--line); border-radius: 9px; overflow: hidden; margin: 4px 0 10px; }
+.progress > i { display: block; height: 100%; background: var(--accent); border-radius: 9px; transition: width .3s; }
+.review-top { display: flex; justify-content: center; margin-bottom: 8px; }
+.stage { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.scene { perspective: 1200px; flex: 1; display: flex; align-items: center; justify-content: center; padding: 8px 0 16px; }
+.flip { display: grid; width: 100%; transition: transform .45s cubic-bezier(.2, .8, .2, 1); transform-style: preserve-3d; }
+.flip.on { transform: rotateY(180deg); }
+.face {
+  grid-area: 1 / 1; background: var(--surface); border-radius: 24px; box-shadow: var(--shadow);
+  padding: 28px 22px; min-height: 42vh; max-height: 62vh; overflow: auto;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px;
+  text-align: center; white-space: pre-wrap; word-break: break-word; font-size: 22px; font-weight: 600;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.face.back { transform: rotateY(180deg); }
+.face .q { font-size: 14px; font-weight: 400; color: var(--muted); padding-bottom: 12px; border-bottom: 1px solid var(--line); width: 100%; }
+.dock { padding-top: 4px; display: grid; gap: 10px; }
+.reveal { width: 100%; min-height: 60px; font-size: 18px; }
+.rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rate button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; border-radius: 16px;
+  color: #fff; font-weight: 700; min-height: 62px;
+}
+.rate button small { font-weight: 500; opacity: .9; font-size: 12px; }
+.rate button:active { transform: scale(.96); }
+.r-again { background: var(--again); } .r-hard { background: var(--hard); }
+.r-good { background: var(--good); } .r-easy { background: var(--easy); }
+.keys { text-align: center; color: var(--muted); font-size: 12px; }
+@media (pointer: coarse) { .keys { display: none; } }
+
+/* 폼 / 카드 목록 */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+.input {
+  width: 100%; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  outline: none; resize: vertical; min-height: 48px;
+}
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.seg { display: inline-flex; background: var(--line); border-radius: 12px; padding: 3px; margin-bottom: 12px; }
+.seg button { padding: 7px 14px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.cardrow { background: var(--surface); border-radius: 14px; padding: 11px 14px; display: block; width: 100%; text-align: left; }
+.cardrow .f { font-weight: 600; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cardrow .b { color: var(--muted); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.cardrow .m { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.section { margin: 18px 0 8px; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: .02em; }
+.row { display: flex; gap: 10px; justify-content: flex-end; }
+.row > * { flex: 1; }
+
+/* 통계 */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tile { background: var(--surface); border-radius: 16px; padding: 14px 8px; text-align: center; box-shadow: var(--shadow); }
+.tile b { display: block; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 12px; color: var(--muted); }
+.panel { background: var(--surface); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+.heat { max-width: 340px; margin: 0 auto; display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+.heat i { aspect-ratio: 1; border-radius: 3px; background: var(--line); }
+.heat i.l1 { background: color-mix(in srgb, var(--accent) 28%, var(--line)); }
+.heat i.l2 { background: color-mix(in srgb, var(--accent) 52%, var(--line)); }
+.heat i.l3 { background: color-mix(in srgb, var(--accent) 78%, var(--line)); }
+.heat i.l4 { background: var(--accent); }
+.heat i.future { opacity: 0; }
+.bars { display: flex; align-items: flex-end; gap: 8px; height: 110px; }
+.bars div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 11px; color: var(--muted); }
+.bars i { display: block; width: 100%; background: var(--accent); border-radius: 6px 6px 3px 3px; min-height: 3px; }
+.bars span.v { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 다이얼로그 / 토스트 */
+dialog { border: 0; border-radius: 22px; padding: 20px; width: min(92vw, 440px); background: var(--surface); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+dialog::backdrop { background: rgba(10, 12, 24, .55); backdrop-filter: blur(3px); }
+dialog h2 { margin: 0 0 14px; font-size: 18px; }
+#toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 90px); transform: translate(-50%, 20px);
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 14px; font-size: 14px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: .25s; width: max-content; max-width: 90vw; z-index: 20; text-align: center;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast-err { background: var(--again) !important; color: #fff !important; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 2px; }
+@media (prefers-reduced-motion: reduce) { .flip { transition: none; } * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header id="bar">
+  <button id="back" class="icon" aria-label="뒤로" hidden>‹</button>
+  <h1 id="title">복습</h1>
+  <div id="actions"></div>
+</header>
+<main id="view" tabindex="-1"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <h2 id="dlgTitle"></h2>
+    <div id="dlgBody"></div>
+    <div class="row">
+      <button value="cancel" class="ghost" id="dlgCancel" formnovalidate>취소</button>
+      <button value="ok" class="primary" id="dlgOk">확인</button>
+    </div>
+  </form>
+</dialog>
+<script type="module">
+// 에빙하우스 망각곡선 기반 간격 반복 스케줄러 (순수 함수)
+const STEPS = [1, 2, 4, 7, 15, 30, 60]; // 일
+const DAY_START_HOUR = 4;
+const RELEARN_MS = 10 * 60 * 1000;
+const DAY_MS = 86400000;
+
+function dayNumber(ts) {
+  const d = new Date(ts - DAY_START_HOUR * 3600000);
+  return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / DAY_MS);
+}
+
+function newCard() {
+  return { stage: -1, due: 0, reps: 0, lapses: 0 };
+}
+
+const isNew = (c) => c.stage < 0;
+
+function intervalFor(stage) {
+  if (stage < 0) return STEPS[0];
+  const last = STEPS.length - 1;
+  if (stage <= last) return STEPS[stage];
+  return STEPS[last] * 2 ** (stage - last);
+}
+
+function nextStage(stage, rating) {
+  switch (rating) {
+    case 'again': return 0;
+    case 'hard': return Math.max(stage, 0);
+    case 'good': return stage + 1;
+    case 'easy': return stage + 2;
+    default: throw new Error('unknown rating: ' + rating);
+  }
+}
+
+// 반환: { card, relearnAt? } — relearnAt은 '다시'를 눌렀을 때 같은 세션에서 재출제할 시각
+function schedule(card, rating, now = Date.now()) {
+  const stage = nextStage(card.stage, rating);
+  const next = {
+    ...card,
+    stage,
+    due: dayNumber(now) + intervalFor(stage),
+    reps: card.reps + 1,
+    lapses: card.lapses + (rating === 'again' ? 1 : 0),
+  };
+  return rating === 'again' ? { card: next, relearnAt: now + RELEARN_MS } : { card: next };
+}
+
+function formatInterval(days) {
+  if (days < 7) return `${days}일`;
+  if (days < 30) return `${Math.round(days / 7)}주`;
+  if (days < 365) return `${Math.round(days / 30)}개월`;
+  return `${(days / 365).toFixed(1)}년`;
+}
+
+function previewLabels(card, now = Date.now()) {
+  const out = { again: '10분' };
+  for (const r of ['hard', 'good', 'easy']) {
+    out[r] = formatInterval(schedule(card, r, now).card.due - dayNumber(now));
+  }
+  return out;
+}
+
+// 통계 계산 (순수 함수)
+
+
+function dailyCounts(logs) {
+  const m = new Map();
+  for (const l of logs) {
+    const d = dayNumber(l.ts);
+    m.set(d, (m.get(d) || 0) + 1);
+  }
+  return m;
+}
+
+// 오늘 했으면 오늘부터, 아직 안 했으면 어제부터 연속 일수를 센다
+function streak(counts, today) {
+  let d = counts.has(today) ? today : today - 1;
+  let n = 0;
+  while (counts.has(d)) { n++; d--; }
+  return n;
+}
+
+// 최근 기간(일) 동안 '다시'가 아닌 비율. 기록이 없으면 null
+function retention(logs, today, days = 30) {
+  const recent = logs.filter((l) => dayNumber(l.ts) > today - days);
+  if (!recent.length) return null;
+  return recent.filter((l) => l.rating !== 'again').length / recent.length;
+}
+
+// 오늘(밀린 카드 포함)부터 n일간 복습 예정 수
+function forecast(cards, today, n = 7) {
+  const out = Array(n).fill(0);
+  for (const c of cards) {
+    if (c.stage < 0) continue;
+    const i = Math.max(0, c.due - today);
+    if (i < n) out[i]++;
+  }
+  return out;
+}
+
+function heatLevel(count) {
+  if (!count) return 0;
+  if (count < 5) return 1;
+  if (count < 15) return 2;
+  if (count < 30) return 3;
+  return 4;
+}
+
+const db = (() => {
+// IndexedDB 래퍼 + 내보내기/가져오기
+const NAME = 'reviewer';
+const VERSION = 1;
+const STORES = ['decks', 'cards', 'logs', 'meta'];
+let dbp;
+
+function open() {
+  if (dbp) return dbp;
+  dbp = new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) return reject(new Error('이 브라우저는 저장소(IndexedDB)를 지원하지 않습니다.'));
+    const r = indexedDB.open(NAME, VERSION);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('decks', { keyPath: 'id', autoIncrement: true });
+      d.createObjectStore('cards', { keyPath: 'id', autoIncrement: true }).createIndex('deckId', 'deckId');
+      d.createObjectStore('logs', { keyPath: 'id', autoIncrement: true }).createIndex('ts', 'ts');
+      d.createObjectStore('meta', { keyPath: 'key' });
+    };
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  return dbp;
+}
+
+const req = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+
+async function run(stores, mode, fn) {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(stores, mode);
+    let out;
+    Promise.resolve(fn(t)).then((v) => { out = v; }, reject);
+    t.oncomplete = () => resolve(out);
+    t.onabort = t.onerror = () => reject(t.error || new Error('저장에 실패했습니다.'));
+  });
+}
+
+const getAll = (store) => run(store, 'readonly', (t) => req(t.objectStore(store).getAll()));
+const put = (store, obj) => run(store, 'readwrite', (t) => req(t.objectStore(store).put(obj)));
+const del = (store, id) => run(store, 'readwrite', (t) => req(t.objectStore(store).delete(id)));
+
+function putMany(store, objs) {
+  return run(store, 'readwrite', async (t) => {
+    const s = t.objectStore(store);
+    const keys = [];
+    for (const o of objs) keys.push(await req(s.put(o)));
+    return keys;
+  });
+}
+
+function deleteDeck(id) {
+  return run(['decks', 'cards', 'logs'], 'readwrite', async (t) => {
+    const cards = await req(t.objectStore('cards').index('deckId').getAllKeys(id));
+    for (const k of cards) t.objectStore('cards').delete(k);
+    const logs = await req(t.objectStore('logs').getAll());
+    for (const l of logs) if (l.deckId === id) t.objectStore('logs').delete(l.id);
+    t.objectStore('decks').delete(id);
+  });
+}
+
+async function getSetting(key, fallback) {
+  const rows = await run('meta', 'readonly', (t) => req(t.objectStore('meta').get(key)));
+  return rows ? rows.value : fallback;
+}
+const setSetting = (key, value) => put('meta', { key, value });
+
+async function exportAll() {
+  const [decks, cards, logs, meta] = await Promise.all(STORES.map(getAll));
+  return { app: 'ebbinghaus-cards', version: 1, exportedAt: new Date().toISOString(), decks, cards, logs, meta };
+}
+
+function validateImport(d) {
+  const bad = (m) => { throw new Error('가져오기 실패: ' + m); };
+  if (!d || d.app !== 'ebbinghaus-cards') bad('이 앱에서 내보낸 파일이 아닙니다.');
+  if (d.version !== 1) bad('지원하지 않는 버전입니다.');
+  for (const k of ['decks', 'cards', 'logs', 'meta']) if (!Array.isArray(d[k])) bad(`${k} 항목이 없습니다.`);
+  const ids = new Set();
+  for (const x of d.decks) {
+    if (!Number.isInteger(x.id) || typeof x.name !== 'string') bad('덱 데이터가 올바르지 않습니다.');
+    ids.add(x.id);
+  }
+  const num = Number.isFinite;
+  for (const c of d.cards) {
+    if (!Number.isInteger(c.id) || !ids.has(c.deckId) || typeof c.front !== 'string' || typeof c.back !== 'string'
+      || !num(c.stage) || !num(c.due) || !num(c.reps) || !num(c.lapses)) bad('카드 데이터가 올바르지 않습니다.');
+  }
+  for (const l of d.logs) if (!num(l.ts) || typeof l.rating !== 'string') bad('기록 데이터가 올바르지 않습니다.');
+  for (const m of d.meta) if (typeof m.key !== 'string') bad('설정 데이터가 올바르지 않습니다.');
+}
+
+// 검증을 통과한 데이터로 전체 교체 (한 트랜잭션: 실패 시 기존 데이터 유지)
+function replaceAll(d) {
+  validateImport(d);
+  return run(STORES, 'readwrite', async (t) => {
+    for (const s of STORES) {
+      const os = t.objectStore(s);
+      os.clear();
+      for (const o of d[s]) os.put(o);
+    }
+  });
+}
+
+const resetAll = () => replaceAll({ app: 'ebbinghaus-cards', version: 1, decks: [], cards: [], logs: [], meta: [] });
+
+return { open, getAll, put, del, putMany, deleteDeck, getSetting, setSetting, exportAll, validateImport, replaceAll, resetAll };
+})();
+
+
+
+
+const $ = (s) => document.querySelector(s);
+const view = $('#view'), titleEl = $('#title'), backBtn = $('#back'), actionsEl = $('#actions');
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DEFAULT_NEW = 20;
+let session = null;
+
+/* ---------- UI helpers ---------- */
+let toastTimer;
+function toast(msg, err = false) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show' + (err ? ' toast-err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, err ? 4000 : 1800);
+}
+const guard = (fn) => async (...a) => {
+  try { return await fn(...a); } catch (e) { console.error(e); toast(e.message || '오류가 발생했습니다.', true); }
+};
+
+// fields: [{key,label,value,multiline,rows}] → 확인 시 값 객체, 취소 시 null
+function form(title, fields, { okLabel = '확인', extra } = {}) {
+  const dlg = $('#dlg');
+  $('#dlgTitle').textContent = title;
+  $('#dlgOk').textContent = okLabel;
+  $('#dlgBody').innerHTML = fields.map((f, i) => `<div class="field"><label for="f${i}">${esc(f.label)}</label>${
+    f.multiline
+      ? `<textarea class="input" id="f${i}" rows="${f.rows || 3}">${esc(f.value || '')}</textarea>`
+      : `<input class="input" id="f${i}" value="${esc(f.value || '')}" autocomplete="off">`}</div>`).join('')
+    + (extra ? `<div class="row" style="margin-bottom:12px">${extra}</div>` : '');
+  return new Promise((resolve) => {
+    dlg.onclose = () => {
+      const vals = dlg.returnValue === 'ok'
+        ? Object.fromEntries(fields.map((f, i) => [f.key, $('#f' + i).value])) : null;
+      dlg.returnValue = '';
+      resolve(vals);
+    };
+    dlg.showModal();
+    $('#f0').focus();
+  });
+}
+const confirmBox = async (msg, okLabel = '삭제') => {
+  const dlg = $('#dlg');
+  $('#dlgTitle').textContent = msg;
+  $('#dlgBody').innerHTML = '';
+  $('#dlgOk').textContent = okLabel;
+  return new Promise((resolve) => {
+    dlg.onclose = () => { const ok = dlg.returnValue === 'ok'; dlg.returnValue = ''; resolve(ok); };
+    dlg.showModal();
+  });
+};
+
+function chrome({ title, back, actions = '' }) {
+  titleEl.textContent = title;
+  backBtn.hidden = !back;
+  backBtn.onclick = () => { location.hash = back; };
+  actionsEl.innerHTML = actions;
+}
+const today = () => dayNumber(Date.now());
+
+/* ---------- 데이터 헬퍼 ---------- */
+async function deckStats() {
+  const [decks, cards, logs, limit] = await Promise.all([
+    db.getAll('decks'), db.getAll('cards'), db.getAll('logs'), db.getSetting('newPerDay', DEFAULT_NEW)]);
+  const t = today();
+  const introduced = new Map();
+  for (const l of logs) {
+    if (dayNumber(l.ts) === t && l.prev && l.prev.stage < 0) {
+      if (!introduced.has(l.deckId)) introduced.set(l.deckId, new Set());
+      introduced.get(l.deckId).add(l.cardId);
+    }
+  }
+  return { cards, logs, limit, decks: decks.map((d) => {
+    const mine = cards.filter((c) => c.deckId === d.id);
+    const fresh = mine.filter((c) => c.stage < 0).length;
+    const left = Math.max(0, limit - (introduced.get(d.id)?.size || 0));
+    return { ...d, total: mine.length, newN: Math.min(fresh, left), dueN: mine.filter((c) => c.stage >= 0 && c.due <= t).length };
+  }) };
+}
+
+/* ---------- 홈 ---------- */
+async function renderHome() {
+  chrome({ title: '복습', actions: `<button class="icon" data-go="#/stats" aria-label="통계">📊</button><button class="icon" data-go="#/settings" aria-label="설정">⚙️</button>` });
+  const { decks } = await deckStats();
+  if (!decks.length) {
+    view.innerHTML = `<div class="empty"><div class="big">🧠</div><h2>첫 덱을 만들어 보세요</h2>
+      <p>덱은 과목이나 주제 묶음이에요.<br>카드를 넣고 복습하면 잊기 전에 알려 드려요.</p>
+      <button class="primary" id="newDeck">덱 만들기</button></div>`;
+  } else {
+    const c = (n, cls) => `<span class="${cls} ${n ? '' : 'zero'}">${n}</span>`;
+    view.innerHTML = `<div class="list">${decks.map((d) => `
+      <div class="item" role="button" tabindex="0" data-go="#/review/${d.id}">
+        <div class="name">${esc(d.name)}<div class="sub">카드 ${d.total}장</div></div>
+        <div class="counts" title="새 카드 · 복습">${c(d.newN, 'n-new')}${c(d.dueN, 'n-rev')}</div>
+        <button class="icon" data-go="#/deck/${d.id}" aria-label="카드 관리">☰</button>
+      </div>`).join('')}</div>
+      <p class="hint">파랑 = 새 카드, 초록 = 오늘 복습할 카드</p>
+      <button class="fab" id="newDeck" aria-label="덱 추가">＋</button>`;
+  }
+}
+const createDeck = guard(async () => {
+  const v = await form('새 덱 이름', [{ key: 'name', label: '이름', value: '' }], { okLabel: '만들기' });
+  if (!v || !v.name.trim()) return;
+  const id = await db.put('decks', { name: v.name.trim(), createdAt: Date.now() });
+  location.hash = '#/deck/' + id;
+});
+
+/* ---------- 덱(카드 관리) ---------- */
+async function renderDeck(id, { mode = 'one', q = '' } = {}) {
+  const decks = await db.getAll('decks');
+  const deck = decks.find((d) => d.id === id);
+  if (!deck) { location.hash = '#/'; return; }
+  chrome({ title: deck.name, back: '#/', actions: `<button class="icon" id="deckMenu" aria-label="덱 설정">⋯</button>` });
+  const cards = (await db.getAll('cards')).filter((c) => c.deckId === id).sort((a, b) => b.id - a.id);
+  const shown = q ? cards.filter((c) => (c.front + c.back).toLowerCase().includes(q.toLowerCase())) : cards;
+  view.innerHTML = `
+    <div class="seg"><button data-mode="one" class="${mode === 'one' ? 'on' : ''}">카드 1장</button><button data-mode="bulk" class="${mode === 'bulk' ? 'on' : ''}">여러 장 붙여넣기</button></div>
+    ${mode === 'one' ? `
+      <div class="field"><label for="cFront">앞면 (질문)</label><textarea class="input" id="cFront" rows="2"></textarea></div>
+      <div class="field"><label for="cBack">뒷면 (정답)</label><textarea class="input" id="cBack" rows="3"></textarea></div>
+      <button class="primary" id="addOne" style="width:100%">카드 추가</button>`
+    : `<div class="field"><label for="bulk">한 줄에 한 장 — 앞면 ; 뒷면 (또는 탭으로 구분)</label>
+        <textarea class="input" id="bulk" rows="7" placeholder="apple ; 사과&#10;banana ; 바나나"></textarea></div>
+        <button class="primary" id="addBulk" style="width:100%">한 번에 추가</button>`}
+    <div class="section">카드 ${cards.length}장</div>
+    ${cards.length > 6 ? `<input class="input" id="search" placeholder="검색" value="${esc(q)}" style="margin-bottom:10px">` : ''}
+    <div class="list">${shown.map((c) => `<button class="cardrow" data-edit="${c.id}"><div class="f">${esc(c.front)}</div><div class="b">${esc(c.back)}</div>
+      <div class="m">${c.stage < 0 ? '새 카드' : '다음 복습 ' + dueLabel(c.due)}</div></button>`).join('')}</div>`;
+  view.dataset.deck = id; view.dataset.mode = mode;
+  if (mode === 'one') $('#cFront').focus();
+}
+function dueLabel(due) {
+  const diff = due - today();
+  return diff <= 0 ? '오늘' : diff === 1 ? '내일' : `${diff}일 뒤`;
+}
+const addOne = guard(async (deckId) => {
+  const front = $('#cFront').value.trim(), back = $('#cBack').value.trim();
+  if (!front || !back) return toast('앞면과 뒷면을 모두 입력하세요.', true);
+  await db.put('cards', { deckId, front, back, ...newCard(), createdAt: Date.now() });
+  toast('추가했어요');
+  await renderDeck(deckId);
+});
+const addBulk = guard(async (deckId) => {
+  const rows = $('#bulk').value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const i = l.includes('\t') ? l.indexOf('\t') : l.indexOf(';');
+    return i < 0 ? null : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+  });
+  const ok = rows.filter((r) => r && r[0] && r[1]);
+  if (!ok.length) return toast('형식: 앞면 ; 뒷면 (한 줄에 한 장)', true);
+  await db.putMany('cards', ok.map(([front, back]) => ({ deckId, front, back, ...newCard(), createdAt: Date.now() })));
+  const skipped = rows.length - ok.length;
+  toast(`${ok.length}장 추가${skipped ? `, ${skipped}줄은 형식이 달라 건너뜀` : ''}`);
+  await renderDeck(deckId);
+});
+let editing = null; // 수정 다이얼로그에서 삭제 버튼이 참조
+const editCard = guard(async (cardId, deckId) => {
+  const card = (await db.getAll('cards')).find((c) => c.id === cardId);
+  if (!card) return;
+  editing = { cardId, deckId };
+  const v = await form('카드 수정', [
+    { key: 'front', label: '앞면', value: card.front, multiline: true, rows: 3 },
+    { key: 'back', label: '뒷면', value: card.back, multiline: true, rows: 4 }],
+  { okLabel: '저장', extra: `<button type="button" class="danger" id="delCard">카드 삭제</button>` });
+  if (v && v.front.trim() && v.back.trim()) {
+    await db.put('cards', { ...card, front: v.front.trim(), back: v.back.trim() });
+    await renderDeck(deckId);
+  }
+});
+const deckMenu = guard(async (deckId) => {
+  const deck = (await db.getAll('decks')).find((d) => d.id === deckId);
+  const v = await form('덱 이름 변경', [{ key: 'name', label: '이름', value: deck.name }],
+    { okLabel: '저장', extra: `<button type="button" class="danger" id="delDeck">덱 삭제</button>` });
+  if (v && v.name.trim()) { await db.put('decks', { ...deck, name: v.name.trim() }); await renderDeck(deckId); }
+});
+
+/* ---------- 복습 ---------- */
+const guardRender = guard(async () => { await route(); });
+
+async function startReview(deckId) {
+  const { decks, cards } = await deckStats();
+  const deck = decks.find((d) => d.id === deckId);
+  if (!deck) { location.hash = '#/'; return; }
+  const t = today();
+  const due = cards.filter((c) => c.deckId === deckId && c.stage >= 0 && c.due <= t).sort((a, b) => a.due - b.due || a.id - b.id);
+  const fresh = cards.filter((c) => c.deckId === deckId && c.stage < 0).sort((a, b) => a.id - b.id).slice(0, deck.newN);
+  session = { deckId, name: deck.name, queue: [...due, ...fresh], relearn: [], undo: [], revealed: false, total: due.length + fresh.length, done: 0, current: null };
+}
+
+function pickNext() {
+  const s = session, now = Date.now();
+  const ready = s.relearn.findIndex((r) => r.at <= now);
+  if (ready >= 0) return { card: s.relearn[ready].card, relearn: true };
+  if (s.queue.length) return { card: s.queue[0], relearn: false };
+  if (s.relearn.length) { const r = [...s.relearn].sort((a, b) => a.at - b.at)[0]; return { card: r.card, relearn: true }; }
+  return null;
+}
+
+function renderReview() {
+  const s = session;
+  chrome({ title: s.name, back: '#/', actions: `<button class="icon" id="undo" aria-label="실행 취소" ${s.undo.length ? '' : 'disabled style="opacity:.3"'}>↩︎</button>` });
+  const cur = (s.current = pickNext());
+  if (!cur) {
+    view.innerHTML = `<div class="empty"><div class="big">${s.total ? '🎉' : '✨'}</div>
+      <h2>${s.total ? '오늘 복습 끝!' : '지금 복습할 카드가 없어요'}</h2>
+      <p>${s.total ? `${s.done}번 복습했어요. 내일 또 만나요.` : '새 카드를 추가하거나 내일 다시 확인하세요.'}</p>
+      <button class="primary" data-go="#/">덱 목록으로</button></div>`;
+    return;
+  }
+  const left = s.queue.length + s.relearn.length;
+  const pct = s.total ? Math.min(100, (s.done / (s.done + left)) * 100) : 0;
+  const nNew = s.queue.filter((c) => c.stage < 0).length, nRel = s.relearn.length, nRev = s.queue.length - nNew;
+  s.revealed = false;
+  view.innerHTML = `<div class="stage">
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <div class="review-top"><div class="counts"><span class="n-new">${nNew}</span><span class="n-learn">${nRel}</span><span class="n-rev">${nRev}</span></div></div>
+    <div class="scene"><div class="flip" id="flip">
+      <div class="face front">${esc(cur.card.front)}</div>
+      <div class="face back"><div class="q">${esc(cur.card.front)}</div>${esc(cur.card.back)}</div>
+    </div></div>
+    <div class="dock" id="dock"><button class="primary reveal" id="show">정답 보기</button><div class="keys">Space 정답 · 1 다시 · 2 어려움 · 3 좋음 · 4 쉬움 · Z 취소</div></div></div>`;
+}
+function reveal() {
+  const s = session;
+  if (!s || !s.current || s.revealed) return;
+  s.revealed = true;
+  $('#flip').classList.add('on');
+  const l = previewLabels(s.current.card);
+  const lab = s.current.relearn ? { again: '10분', hard: '내일', good: '내일', easy: '내일' } : l;
+  $('#dock').innerHTML = `<div class="rate">
+    <button class="r-again" data-rate="again">다시<small>${lab.again}</small></button>
+    <button class="r-hard" data-rate="hard">어려움<small>${lab.hard}</small></button>
+    <button class="r-good" data-rate="good">좋음<small>${lab.good}</small></button>
+    <button class="r-easy" data-rate="easy">쉬움<small>${lab.easy}</small></button></div>`;
+}
+const rate = guard(async (rating) => {
+  const s = session;
+  if (!s || !s.current || !s.revealed) return;
+  const { card, relearn } = s.current;
+  const now = Date.now();
+  const prev = { stage: card.stage, due: card.due, reps: card.reps, lapses: card.lapses };
+  // 학습 중(10분 재출제) 카드를 통과시키면 일정은 그대로 두고 기록만 남긴다
+  const graduate = relearn && rating !== 'again';
+  const entry = { prev, card: { ...card }, wasRelearn: relearn, dbChanged: !graduate };
+  let saved = card, relearnAt;
+  if (!graduate) {
+    const r = schedule(card, rating, now);
+    saved = { ...card, ...r.card };
+    relearnAt = r.relearnAt;
+    await db.put('cards', saved);
+  }
+  entry.logId = await db.put('logs', { cardId: card.id, deckId: card.deckId, ts: now, rating, prev });
+  s.queue = s.queue.filter((c) => c.id !== card.id);
+  s.relearn = s.relearn.filter((r) => r.card.id !== card.id);
+  if (relearnAt) s.relearn.push({ card: saved, at: relearnAt });
+  s.undo.push(entry);
+  s.done++;
+  renderReview();
+});
+const undo = guard(async () => {
+  const s = session;
+  const e = s && s.undo.pop();
+  if (!e) return;
+  const restored = { ...e.card, ...e.prev };
+  await db.del('logs', e.logId);
+  if (e.dbChanged) await db.put('cards', restored);
+  s.relearn = s.relearn.filter((r) => r.card.id !== restored.id);
+  if (e.wasRelearn) s.relearn.unshift({ card: restored, at: 0 });
+  else s.queue.unshift(restored);
+  s.done = Math.max(0, s.done - 1);
+  renderReview();
+});
+
+/* ---------- 통계 ---------- */
+async function renderStats() {
+  chrome({ title: '통계', back: '#/' });
+  const [cards, logs] = await Promise.all([db.getAll('cards'), db.getAll('logs')]);
+  const t = today();
+  const counts = dailyCounts(logs);
+  const ret = retention(logs, t);
+  const fc = forecast(cards, t, 7);
+  const max = Math.max(1, ...fc);
+  const WEEKS = 12;
+  const dow = new Date(Date.UTC(1970, 0, 1) + t * 86400000).getUTCDay(); // 오늘 요일 (0=일)
+  const start = t - dow - (WEEKS - 1) * 7;
+  const cells = [];
+  for (let d = start; d <= t - dow + 6; d++) {
+    cells.push(`<i class="${d > t ? 'future' : 'l' + heatLevel(counts.get(d) || 0)}" title="${counts.get(d) || 0}회"></i>`);
+  }
+  const names = ['일', '월', '화', '수', '목', '금', '토'];
+  view.innerHTML = `
+    <div class="tiles">
+      <div class="tile"><b>${counts.get(t) || 0}</b><span>오늘 복습</span></div>
+      <div class="tile"><b>${streak(counts, t)}🔥</b><span>연속 학습일</span></div>
+      <div class="tile"><b>${ret === null ? '–' : Math.round(ret * 100) + '%'}</b><span>유지율 (30일)</span></div>
+    </div>
+    <div class="section">앞으로 7일 복습 예정</div>
+    <div class="panel"><div class="bars">${fc.map((n, i) => `<div><span class="v">${n}</span><i style="height:${(n / max) * 80}px"></i><span>${i === 0 ? '오늘' : names[(dow + i) % 7]}</span></div>`).join('')}</div></div>
+    <div class="section">최근 12주 학습</div>
+    <div class="panel"><div class="heat">${cells.join('')}</div></div>
+    <div class="section">카드 현황</div>
+    <div class="panel hint" style="margin:0">전체 ${cards.length}장 · 새 카드 ${cards.filter((c) => c.stage < 0).length} · 학습 중 ${cards.filter((c) => c.stage >= 0 && c.stage < 4).length} · 장기 기억 ${cards.filter((c) => c.stage >= 4).length}</div>`;
+}
+
+/* ---------- 설정 ---------- */
+async function renderSettings() {
+  chrome({ title: '설정', back: '#/' });
+  const limit = await db.getSetting('newPerDay', DEFAULT_NEW);
+  view.innerHTML = `
+    <div class="field"><label for="npd">하루 새 카드 수 (덱마다)</label><input class="input" id="npd" type="number" inputmode="numeric" min="0" max="999" value="${limit}"></div>
+    <div class="section">복습 간격 (에빙하우스)</div>
+    <div class="panel hint" style="margin:0 0 8px">1일 → 2일 → 4일 → 7일 → 15일 → 30일 → 60일 → 이후 2배씩.<br>좋음은 한 단계, 쉬움은 두 단계 올라가고, 어려움은 같은 간격을 반복하며, 다시는 처음 단계로 돌아갑니다.</div>
+    <div class="section">백업</div>
+    <div class="list">
+      <button class="ghost" id="export">📤 내보내기 (JSON)</button>
+      <button class="ghost" id="import">📥 가져오기</button>
+      <input type="file" id="file" accept="application/json,.json" hidden>
+      <button class="danger" id="wipe">모든 데이터 삭제</button>
+    </div>
+    <p class="hint">데이터는 이 기기의 브라우저에만 저장돼요. 기기를 바꾸거나 정기 백업할 때 내보내기를 쓰세요.</p>`;
+}
+const exportData = guard(async () => {
+  const data = JSON.stringify(await db.exportAll(), null, 1);
+  const name = `복습백업-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([data], name, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('내보냈어요');
+});
+const importData = guard(async (file) => {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { throw new Error('가져오기 실패: JSON 파일이 아닙니다.'); }
+  db.validateImport(data);
+  if (!(await confirmBox('현재 데이터를 모두 지우고 이 파일로 바꿀까요?', '바꾸기'))) return;
+  await db.replaceAll(data);
+  toast(`카드 ${data.cards.length}장을 가져왔어요`);
+  location.hash = '#/';
+});
+
+/* ---------- 라우터 ---------- */
+async function route() {
+  const [, page, arg] = (location.hash || '#/').split('/');
+  const id = Number(arg);
+  if (page !== 'review') session = null;
+  if (page === 'review') {
+    if (!session || session.deckId !== id) await startReview(id);
+    if (session) renderReview();
+  } else if (page === 'deck') await renderDeck(id);
+  else if (page === 'stats') await renderStats();
+  else if (page === 'settings') await renderSettings();
+  else await renderHome();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click', guard(async (e) => {
+  const t = e.target.closest('button, [data-go]');
+  if (!t) return;
+  const set = (k) => t.dataset[k];
+  if (t.id === 'dlgCancel') return;
+  if (set('go')) { e.stopPropagation(); location.hash = set('go'); return; }
+  if (t.id === 'newDeck') return createDeck();
+  if (t.id === 'show') return reveal();
+  if (set('rate')) return rate(set('rate'));
+  if (t.id === 'undo') return undo();
+  const deckId = Number(view.dataset.deck);
+  if (set('mode')) return renderDeck(deckId, { mode: set('mode') });
+  if (t.id === 'addOne') return addOne(deckId);
+  if (t.id === 'addBulk') return addBulk(deckId);
+  if (set('edit')) return editCard(Number(set('edit')), deckId);
+  if (t.id === 'deckMenu') return deckMenu(deckId);
+  if (t.id === 'export') return exportData();
+  if (t.id === 'import') return $('#file').click();
+  if (t.id === 'wipe') {
+    if (await confirmBox('모든 덱과 카드, 기록을 삭제할까요? 되돌릴 수 없어요.', '모두 삭제')) { await db.resetAll(); toast('삭제했어요'); location.hash = '#/'; await route(); }
+  }
+}));
+document.addEventListener('change', guard(async (e) => {
+  if (e.target.id === 'file' && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ''; await importData(f); }
+  if (e.target.id === 'npd') {
+    const n = Math.max(0, Math.min(999, parseInt(e.target.value, 10) || 0));
+    await db.setSetting('newPerDay', n); e.target.value = n; toast('저장했어요');
+  }
+}));
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'search') {
+    const pos = e.target.selectionStart;
+    renderDeck(Number(view.dataset.deck), { mode: view.dataset.mode, q: e.target.value }).then(() => {
+      const s = $('#search'); if (s) { s.focus(); s.setSelectionRange(pos, pos); }
+    });
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if ($('#dlg').open || /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.metaKey || e.ctrlKey) return;
+  if (!session || !location.hash.startsWith('#/review')) {
+    if (e.key === 'Enter' && e.target.dataset?.go) location.hash = e.target.dataset.go;
+    return;
+  }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); session.revealed ? rate('good') : reveal(); }
+  else if (e.key === 'z' || e.key === 'Z') undo();
+  else if (session.revealed && '1234'.includes(e.key) && e.key) rate(['again', 'hard', 'good', 'easy'][Number(e.key) - 1]);
+});
+window.addEventListener('hashchange', guardRender);
+
+// 덱 수정/카드 수정 다이얼로그 안의 삭제 버튼
+$('#dlgBody').addEventListener('click', guard(async (e) => {
+  const b = e.target.closest('#delCard, #delDeck');
+  if (!b) return;
+  const deckId = Number(view.dataset.deck);
+  if (b.id === 'delDeck') {
+    if (!(await confirmAfterClose('이 덱과 안의 카드를 모두 삭제할까요?'))) return;
+    await db.deleteDeck(deckId); location.hash = '#/';
+  } else if (editing) {
+    if (!(await confirmAfterClose('이 카드를 삭제할까요?'))) return;
+    await db.del('cards', editing.cardId);
+    await renderDeck(editing.deckId);
+  }
+}));
+function confirmAfterClose(msg) {
+  $('#dlg').close('cancel');
+  return new Promise((r) => setTimeout(() => r(confirmBox(msg)), 30));
+}
+
+/* ---------- 시작 ---------- */
+guard(async () => {
+  await db.open();
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+  await route();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+
+</script>
+</body>
+</html>
