@@ -69,6 +69,7 @@
   .go:disabled { animation: none; opacity: .3; box-shadow: none; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--c) 10%, transparent), 0 0 32px color-mix(in srgb, var(--c) 90%, transparent); } }
 
+  .shape { text-align: center; margin-top: 14px; font-size: 13px; font-weight: 800; letter-spacing: .12em; color: #c4b5fd; text-shadow: 0 0 12px rgba(167,139,250,.8); }
   canvas { display: block; width: 100%; height: 640px; margin: 10px 0; }
 
   .result input { --hit: transparent; text-align: center; transition: box-shadow .3s, background .3s, transform .3s; }
@@ -103,6 +104,7 @@
       <button id="shuffle">다시 섞기</button>
     </div>
     <div class="row" id="top"></div>
+    <div class="shape" id="shape"></div>
     <canvas id="cv"></canvas>
     <div class="row result" id="bottom"></div>
     <p class="hint">이름과 결과는 직접 고칠 수 있어요. 고친 뒤 "다시 섞기"를 누르면 새 사다리가 만들어집니다.</p>
@@ -122,7 +124,7 @@
   var raf = 0, lastT = 0;
 
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-  var topEl = document.getElementById('top'), bottomEl = document.getElementById('bottom');
+  var shapeEl = document.getElementById('shape'), topEl = document.getElementById('top'), bottomEl = document.getElementById('bottom');
 
   /* ---------- 소리 (WebAudio 합성, 외부 파일 없음) ---------- */
   var muted = false, ac = null;
@@ -233,23 +235,72 @@
     [].forEach.call(topEl.querySelectorAll('.go'), function (e) { e.disabled = false; });
     draw();
   }
-  function newLadder() { readInputs(); bridges = makeBridges(); buildCells(); reset(); }
+  function rollLook() {
+    var prev = shape; while (SHAPES.length > 1 && shape === prev) shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    bends = bridges.map(function (row) { return row.map(function (t) { return t === 1 && Math.random() < 0.4 ? (Math.random() < .5 ? -1 : 1) * (7 + Math.random() * 9) : 0; }); });
+    shapeEl.textContent = '오늘의 모양 · ' + shape.name;
+  }
+  function newLadder() { readInputs(); bridges = makeBridges(); rollLook(); buildCells(); reset(); }
 
   /* ---------- 그리기 ---------- */
+  // 모양: w(t)=세로 위치 t(0~1)에서의 폭(0.3~1), s(t)=가로 이동. 양 끝은 결과칸에 맞춰 원래 간격으로 이어짐
+  var SHAPES = [
+    { name: '하트', s: function () { return 0; }, w: function (t) {
+      return t < 0.28 ? 0.5 + 0.5 * Math.sin(t / 0.28 * Math.PI / 2) : 1 - 0.74 * Math.pow((t - 0.28) / 0.72, 1.15); } },
+    { name: '다이아몬드', s: function () { return 0; }, w: function (t) { return 0.3 + 0.7 * Math.pow(1 - Math.abs(2 * t - 1), 0.9); } },
+    { name: '모래시계', s: function () { return 0; }, w: function (t) { return 1 - 0.68 * Math.pow(Math.sin(Math.PI * t), 2); } },
+    { name: '풍선', s: function () { return 0; }, w: function (t) { return 0.32 + 0.68 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), 0.6); } },
+    { name: '물결', s: function (t) { return 0.1 * Math.sin(4 * Math.PI * t); }, w: function () { return 0.78; } },
+    { name: '별빛', s: function () { return 0; }, w: function (t) { return 0.5 + 0.5 * Math.abs(Math.sin(2.5 * Math.PI * t)); } }
+  ];
+  var shape = SHAPES[Math.floor(Math.random() * SHAPES.length)], bends = [];
+  function smooth(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+  function xAt(c, y, g) {
+    var t = y / g.h, e = smooth(Math.min(t, 1 - t) / 0.12), w = 1 + (shape.w(t) - 1) * e, sh = shape.s(t) * e;
+    return g.w * (0.5 + sh + (c - (n - 1) / 2) / n * w);
+  }
   function geom() {
     var w = cv.clientWidth, h = cv.clientHeight;
-    return { w: w, h: h, x: function (c) { return (c + 0.5) * w / n; }, y: function (r) { return (r + 0.5) * h / ROWS; } };
+    return { w: w, h: h, y: function (r) { return (r + 0.5) * h / ROWS; } };
+  }
+  function railPts(c, y0, y1, g, out) {
+    var steps = Math.max(1, Math.ceil((y1 - y0) / 8));
+    for (var k = 1; k <= steps; k++) { var y = y0 + (y1 - y0) * k / steps; out.push([xAt(c, y, g), y]); }
+  }
+  // c열에서 nc열로 건너가는 가로줄(곡선 포함, kind 1) 또는 사선(S자 곡선, kind 2)의 점들
+  function rungPts(c, nc, r, kind, g, out) {
+    var y0 = g.y(r), k, u;
+    if (kind === 2) {
+      var y1 = g.y(r + 1), ax = xAt(c, y0, g), bx = xAt(nc, y1, g), m = (y1 - y0) * 0.6;
+      for (k = 1; k <= 16; k++) {
+        u = k / 16; var v = 1 - u;
+        out.push([v * v * v * ax + 3 * v * v * u * ax + 3 * v * u * u * bx + u * u * u * bx,
+                  v * v * v * y0 + 3 * v * v * u * (y0 + m) + 3 * v * u * u * (y1 - m) + u * u * u * y1]);
+      }
+    } else {
+      var x0 = xAt(c, y0, g), x1 = xAt(nc, y0, g), bd = bends[r] ? bends[r][Math.min(c, nc)] : 0;
+      if (!bd) { out.push([x1, y0]); return; }
+      for (k = 1; k <= 12; k++) {
+        u = k / 12; var w = 1 - u;
+        out.push([w * w * x0 + 2 * w * u * (x0 + x1) / 2 + u * u * x1, w * w * y0 + 2 * w * u * (y0 + 2 * bd) + u * u * y0]);
+      }
+    }
   }
   function points(start) {
-    var g = geom(), pts = [[g.x(start), 0]], c = start, r, cum = [0];
+    var g = geom(), pts = [[xAt(start, 0, g), 0]], mi = [], c = start, cy = 0, r, cum = [0];
     for (r = 0; r < ROWS; r++) {
-      pts.push([g.x(c), g.y(r)]);
-      var nc = stepCol(c, r), diag = bridges[r][Math.min(c, nc)] === 2;
-      if (nc !== c) { pts.push([g.x(nc), g.y(diag ? r + 1 : r)]); c = nc; }
+      var y = g.y(r);
+      railPts(c, cy, y, g, pts); cy = y;
+      var nc = stepCol(c, r);
+      if (nc !== c) {
+        var kind = bridges[r][Math.min(c, nc)];
+        mi.push(pts.length - 1); rungPts(c, nc, r, kind, g, pts); c = nc;
+        if (kind === 2) cy = g.y(r + 1);
+      }
     }
-    pts.push([g.x(c), g.h]);
+    railPts(c, cy, g.h, g, pts);
     for (var k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
-    return { pts: pts, cum: cum, total: cum[cum.length - 1], end: c };
+    return { pts: pts, cum: cum, total: cum[cum.length - 1], end: c, mk: mi.map(function (i) { return cum[i]; }) };
   }
   function headAt(p, len) {
     for (var k = 1; k < p.pts.length; k++) if (p.cum[k] >= len) {
@@ -276,13 +327,23 @@
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, g.w, g.h);
-    ctx.strokeStyle = 'rgba(190,200,255,.24)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-    for (c = 0; c < n; c++) { ctx.beginPath(); ctx.moveTo(g.x(c), 0); ctx.lineTo(g.x(c), g.h); ctx.stroke(); }
+    var rail = [], pl;
+    for (c = 0; c < n; c++) { var rp = [[xAt(c, 0, g), 0]]; railPts(c, 0, g.h, g, rp); rail.push(rp); }
+    // 모양 실루엣 (바깥 두 줄 사이를 은은하게 채움)
+    ctx.beginPath();
+    rail[0].forEach(function (q, k) { k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    rail[n - 1].slice().reverse().forEach(function (q) { ctx.lineTo(q[0], q[1]); });
+    ctx.closePath();
+    var gr = ctx.createLinearGradient(0, 0, 0, g.h); gr.addColorStop(0, 'rgba(103,232,249,.10)'); gr.addColorStop(.5, 'rgba(167,139,250,.14)'); gr.addColorStop(1, 'rgba(244,114,182,.10)');
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.strokeStyle = 'rgba(190,200,255,.26)'; ctx.lineWidth = 3; ctx.lineCap = ctx.lineJoin = 'round';
+    for (c = 0; c < n; c++) { ctx.beginPath(); rail[c].forEach(function (q, k) { k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke(); }
     for (r = 0; r < ROWS; r++) for (i = 0; i < n - 1; i++) if (bridges[r][i]) {
-      var y2 = bridges[r][i] === 2 ? g.y(r + 1) : g.y(r);
-      ctx.beginPath(); ctx.moveTo(g.x(i), g.y(r)); ctx.lineTo(g.x(i + 1), y2);
-      if (bridges[r][i] === 2) { ctx.moveTo(g.x(i + 1), g.y(r)); ctx.lineTo(g.x(i), y2); }
-      ctx.stroke();
+      var dirs = bridges[r][i] === 2 ? [[i, i + 1], [i + 1, i]] : [[i, i + 1]];
+      dirs.forEach(function (d) {
+        pl = [[xAt(d[0], g.y(r), g), g.y(r)]]; rungPts(d[0], d[1], r, bridges[r][i], g, pl);
+        ctx.beginPath(); pl.forEach(function (q, k) { k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke();
+      });
     }
     Object.keys(done).forEach(function (s) { var p = points(+s); strokePath(p, p.total, COLORS[s], 5); });
     var now = performance.now();
@@ -311,12 +372,7 @@
     var now = performance.now(), active = false;
     Object.keys(anim).forEach(function (s) {
       var a = anim[s], len = Math.min(a.p.total, (now - a.t0) * SPEED), h = headAt(a.p, len);
-      // 지나온 꼭짓점 중 가로 이동에서 틱 소리
-      while (a.k < a.p.pts.length && a.p.cum[a.k] <= len) {
-        var q = a.p.pts[a.k], pr = a.p.pts[a.k - 1];
-        if (a.k > 0 && q[0] !== pr[0]) sfx.tick(a.k);
-        a.k++;
-      }
+      while (a.k < a.p.mk.length && a.p.mk[a.k] <= len) sfx.tick(a.k++); // 가로줄·사선을 건널 때 틱
       parts.push({ x: h[0] + (Math.random() - .5) * 4, y: h[1] + (Math.random() - .5) * 4, vx: (Math.random() - .5) * .05, vy: (Math.random() - .5) * .05,
         life: .7, s: 2 + Math.random() * 3, color: COLORS[s] });
       if (len >= a.p.total) {
@@ -336,7 +392,7 @@
   function run(i) {
     if (done[i] || anim[i]) return;
     topEl.querySelectorAll('.go')[i].disabled = true;
-    anim[i] = { p: points(i), t0: performance.now(), k: 1 };
+    anim[i] = { p: points(i), t0: performance.now(), k: 0 };
     sfx.start(i);
     if (!raf) raf = requestAnimationFrame(tick);
   }
@@ -348,7 +404,7 @@
   window.addEventListener('resize', draw);
 
   window.ladder = { trace: trace, points: points, get n() { return n; }, get bridges() { return bridges; } };
-  bridges = makeBridges(); buildCells(); draw();
+  bridges = makeBridges(); rollLook(); buildCells(); draw();
 })();
 </script>
 </body>
