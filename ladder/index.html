@@ -168,21 +168,34 @@
   });
 
   /* ---------- 사다리 로직 ---------- */
+  // bridges[r][i]: 0 없음, 1 가로줄, 2 사선(X자 교차: r행 -> r+1행으로 대각선 이동)
   function makeBridges() {
-    var b = [], r, i;
+    var b = [], occ = [], r, i;
+    for (r = 0; r < ROWS; r++) { b.push([]); occ.push([]); for (i = 0; i < n - 1; i++) { b[r].push(0); occ[r].push(false); } }
+    function free(r, i) { return r >= 0 && r < ROWS && i >= 0 && i < n - 1 && !occ[r][i]; }
+    function block(r, i) { if (r >= 0 && r < ROWS && i >= 0 && i < n - 1) occ[r][i] = true; }
+    function putH(r, i) { b[r][i] = 1; block(r, i - 1); block(r, i); block(r, i + 1); }
+    function canX(r, i) { return r + 1 < ROWS && [i - 1, i, i + 1].every(function (k) { return k < 0 || k > n - 2 || (free(r, k) && free(r + 1, k)); }); }
+    function putX(r, i) { b[r][i] = 2; for (var k = i - 1; k <= i + 1; k++) { block(r, k); block(r + 1, k); } }
     for (r = 0; r < ROWS; r++) {
-      var row = [];
-      for (i = 0; i < n - 1; i++) row.push(!row[i - 1] && Math.random() < 0.65);
-      b.push(row);
+      var order = [];
+      for (i = 0; i < n - 1; i++) order.push(i);
+      order.sort(function () { return Math.random() - .5; });
+      order.forEach(function (i) {
+        if (!free(r, i)) return;
+        var roll = Math.random();
+        if (roll < 0.2 && canX(r, i)) putX(r, i);
+        else if (roll < 0.2 + 0.55 && !(i > 0 && occ[r][i - 1]) && !(i < n - 2 && occ[r][i + 1])) putH(r, i);
+      });
     }
-    for (i = 0; i < n - 1; i++) { // 모든 칸 사이에 최소 하나의 가로줄
-      var has = false;
-      for (r = 0; r < ROWS; r++) if (b[r][i]) has = true;
-      if (!has) {
-        var cands = [];
-        for (r = 0; r < ROWS; r++) if (!b[r][i - 1] && !b[r][i + 1]) cands.push(r);
-        if (cands.length) b[cands[Math.floor(Math.random() * cands.length)]][i] = true;
-      }
+    for (i = 0; i < n - 1; i++) { // 모든 칸 사이에 가로줄과 사선이 최소 하나씩
+      [1, 2].forEach(function (t) {
+        var has = false, cands = [];
+        for (r = 0; r < ROWS; r++) if (b[r][i] === t) has = true;
+        if (has) return;
+        for (r = 0; r < ROWS; r++) if (t === 1 ? (!occ[r][i] && !(i > 0 && occ[r][i - 1]) && !(i < n - 2 && occ[r][i + 1])) : canX(r, i)) cands.push(r);
+        if (cands.length) { var rr = cands[Math.floor(Math.random() * cands.length)]; if (t === 1) putH(rr, i); else putX(rr, i); }
+      });
     }
     return b;
   }
@@ -231,8 +244,8 @@
     var g = geom(), pts = [[g.x(start), 0]], c = start, r, cum = [0];
     for (r = 0; r < ROWS; r++) {
       pts.push([g.x(c), g.y(r)]);
-      var nc = stepCol(c, r);
-      if (nc !== c) { pts.push([g.x(nc), g.y(r)]); c = nc; }
+      var nc = stepCol(c, r), diag = bridges[r][Math.min(c, nc)] === 2;
+      if (nc !== c) { pts.push([g.x(nc), g.y(diag ? r + 1 : r)]); c = nc; }
     }
     pts.push([g.x(c), g.h]);
     for (var k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
@@ -266,7 +279,10 @@
     ctx.strokeStyle = 'rgba(190,200,255,.24)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
     for (c = 0; c < n; c++) { ctx.beginPath(); ctx.moveTo(g.x(c), 0); ctx.lineTo(g.x(c), g.h); ctx.stroke(); }
     for (r = 0; r < ROWS; r++) for (i = 0; i < n - 1; i++) if (bridges[r][i]) {
-      ctx.beginPath(); ctx.moveTo(g.x(i), g.y(r)); ctx.lineTo(g.x(i + 1), g.y(r)); ctx.stroke();
+      var y2 = bridges[r][i] === 2 ? g.y(r + 1) : g.y(r);
+      ctx.beginPath(); ctx.moveTo(g.x(i), g.y(r)); ctx.lineTo(g.x(i + 1), y2);
+      if (bridges[r][i] === 2) { ctx.moveTo(g.x(i + 1), g.y(r)); ctx.lineTo(g.x(i), y2); }
+      ctx.stroke();
     }
     Object.keys(done).forEach(function (s) { var p = points(+s); strokePath(p, p.total, COLORS[s], 5); });
     var now = performance.now();
@@ -298,7 +314,7 @@
       // 지나온 꼭짓점 중 가로 이동에서 틱 소리
       while (a.k < a.p.pts.length && a.p.cum[a.k] <= len) {
         var q = a.p.pts[a.k], pr = a.p.pts[a.k - 1];
-        if (a.k > 0 && q[1] === pr[1] && q[0] !== pr[0]) sfx.tick(a.k);
+        if (a.k > 0 && q[0] !== pr[0]) sfx.tick(a.k);
         a.k++;
       }
       parts.push({ x: h[0] + (Math.random() - .5) * 4, y: h[1] + (Math.random() - .5) * 4, vx: (Math.random() - .5) * .05, vy: (Math.random() - .5) * .05,
@@ -331,7 +347,7 @@
   document.getElementById('plus').addEventListener('click', function () { if (n < MAX) { sfx.click(); readInputs(); n++; newLadder(); } });
   window.addEventListener('resize', draw);
 
-  window.ladder = { trace: trace, get n() { return n; }, get bridges() { return bridges; } };
+  window.ladder = { trace: trace, points: points, get n() { return n; }, get bridges() { return bridges; } };
   bridges = makeBridges(); buildCells(); draw();
 })();
 </script>
