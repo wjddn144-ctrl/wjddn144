@@ -69,7 +69,7 @@
   .go:disabled { animation: none; opacity: .3; box-shadow: none; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--c) 10%, transparent), 0 0 32px color-mix(in srgb, var(--c) 90%, transparent); } }
 
-  canvas { display: block; width: 100%; height: 400px; margin: 10px 0; }
+  canvas { display: block; width: 100%; height: 640px; margin: 10px 0; }
 
   .result input { --hit: transparent; text-align: center; transition: box-shadow .3s, background .3s, transform .3s; }
   .result input.hit { transform: translateY(-3px) scale(1.06); font-weight: 900; color: #fff;
@@ -110,7 +110,7 @@
 </main>
 <script>
 (function () {
-  var MIN = 2, MAX = 6, ROWS = 12, SPEED = 0.6; // SPEED: px/ms
+  var MIN = 2, MAX = 6, ROWS = 28, SPEED = 1.1; // SPEED: px/ms
   var COLORS = ['#fb7185', '#60a5fa', '#4ade80', '#fbbf24', '#c084fc', '#22d3ee'];
   var DEF_RESULTS = ['당첨', '꽝', '꽝', '꽝', '꽝', '꽝'];
 
@@ -172,7 +172,7 @@
     var b = [], r, i;
     for (r = 0; r < ROWS; r++) {
       var row = [];
-      for (i = 0; i < n - 1; i++) row.push(!row[i - 1] && Math.random() < 0.5);
+      for (i = 0; i < n - 1; i++) row.push(!row[i - 1] && Math.random() < 0.65);
       b.push(row);
     }
     for (i = 0; i < n - 1; i++) { // 모든 칸 사이에 최소 하나의 가로줄
@@ -263,7 +263,7 @@
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, g.w, g.h);
-    ctx.strokeStyle = 'rgba(190,200,255,.24)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(190,200,255,.24)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
     for (c = 0; c < n; c++) { ctx.beginPath(); ctx.moveTo(g.x(c), 0); ctx.lineTo(g.x(c), g.h); ctx.stroke(); }
     for (r = 0; r < ROWS; r++) for (i = 0; i < n - 1; i++) if (bridges[r][i]) {
       ctx.beginPath(); ctx.moveTo(g.x(i), g.y(r)); ctx.lineTo(g.x(i + 1), g.y(r)); ctx.stroke();
