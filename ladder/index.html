@@ -44,6 +44,11 @@
   .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
   .stepper { display: flex; align-items: center; gap: 4px; margin-right: auto; background: rgba(255,255,255,.06);
     border: 1px solid var(--glass-b); border-radius: 999px; padding: 3px; }
+  .stepper select { appearance: none; -webkit-appearance: none; font: inherit; font-weight: 800; color: var(--text); background: transparent; border: 0; text-align: center; text-align-last: center; padding: 6px 4px; cursor: pointer; }
+  .stepper select option { color: #111; }
+  .scroll { overflow-x: auto; padding: 4px 2px 8px; margin: 0 -2px; }
+  .board.dense .go { width: 38px; height: 38px; font-size: 13px; }
+  .board.dense .cell input { font-size: 13px; padding: 8px 0; }
   .stepper output { min-width: 3.4em; text-align: center; font-weight: 800; }
   button { font: inherit; color: var(--text); cursor: pointer; border: 1px solid var(--glass-b); background: rgba(255,255,255,.07);
     border-radius: 999px; padding: 8px 15px; transition: transform .12s, background .2s, box-shadow .2s; }
@@ -69,7 +74,6 @@
   .go:disabled { animation: none; opacity: .3; box-shadow: none; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--c) 10%, transparent), 0 0 32px color-mix(in srgb, var(--c) 90%, transparent); } }
 
-  .shape { text-align: center; margin-top: 14px; font-size: 13px; font-weight: 800; letter-spacing: .12em; color: #c4b5fd; text-shadow: 0 0 12px rgba(167,139,250,.8); }
   canvas { display: block; width: 100%; height: 640px; margin: 10px 0; }
 
   .result input { --hit: transparent; text-align: center; transition: box-shadow .3s, background .3s, transform .3s; }
@@ -96,35 +100,39 @@
     <div class="controls">
       <div class="stepper">
         <button id="minus" aria-label="인원 줄이기">−</button>
-        <output id="n">4명</output>
+        <select id="n" aria-label="인원 수"></select>
         <button id="plus" aria-label="인원 늘리기">+</button>
       </div>
       <button id="mute" aria-label="소리 켜기/끄기" title="소리 켜기/끄기">🔊</button>
       <button id="all" class="primary">전체 출발</button>
       <button id="shuffle">다시 섞기</button>
     </div>
-    <div class="row" id="top"></div>
-    <div class="shape" id="shape"></div>
-    <canvas id="cv"></canvas>
-    <div class="row result" id="bottom"></div>
+    <div class="scroll"><div class="board" id="board">
+      <div class="row" id="top"></div>
+      <canvas id="cv"></canvas>
+      <div class="row result" id="bottom"></div>
+    </div></div>
     <p class="hint">이름과 결과는 직접 고칠 수 있어요. 고친 뒤 "다시 섞기"를 누르면 새 사다리가 만들어집니다.</p>
   </div>
 </main>
 <script>
 (function () {
-  var MIN = 2, MAX = 6, ROWS = 28, SPEED = 1.1; // SPEED: px/ms
+  var MIN = 2, MAX = 20, ROWS = 28, SPEED = 1.1; // SPEED: px/ms
   var COLORS = ['#fb7185', '#60a5fa', '#4ade80', '#fbbf24', '#c084fc', '#22d3ee'];
-  var DEF_RESULTS = ['당첨', '꽝', '꽝', '꽝', '꽝', '꽝'];
+  for (var ci = COLORS.length; ci < MAX; ci++) COLORS.push('hsl(' + Math.round(ci * 137.5 % 360) + ', 85%, 66%)');
+  function defResult(i) { return i === 0 ? '당첨' : '꽝'; }
 
   var n = 4, names = [], results = [];
   var bridges = [];          // bridges[r][i]: i열과 i+1열 사이의 가로줄 여부
   var done = {};             // 시작 열 -> true
   var anim = {};             // 시작 열 -> {p, t0, k}
   var parts = [];            // 파티클
-  var raf = 0, lastT = 0;
+  var raf = 0, lastT = 0, timers = [];
 
   var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-  var shapeEl = document.getElementById('shape'), topEl = document.getElementById('top'), bottomEl = document.getElementById('bottom');
+  var nSel = document.getElementById('n');
+  for (var q = MIN; q <= MAX; q++) { var op = document.createElement('option'); op.value = q; op.textContent = q + '명'; nSel.appendChild(op); }
+  var boardEl = document.getElementById('board'), topEl = document.getElementById('top'), bottomEl = document.getElementById('bottom');
 
   /* ---------- 소리 (WebAudio 합성, 외부 파일 없음) ---------- */
   var muted = false, ac = null;
@@ -150,7 +158,7 @@
   var NOTES = [523.25, 587.33, 659.25, 783.99, 880, 987.77];
   var sfx = {
     start: function (i) { beep(220 + i * 30, 0.35, 'sawtooth', 0.04, 0, 880 + i * 60); },
-    tick: function (k) { beep(420 + (k % 6) * 70, 0.07, 'square', 0.035); },
+    tick: function (k) { beep(420 + (k % 6) * 70, 0.07, 'square', 0.035 / Math.sqrt(Math.max(1, Object.keys(anim).length))); },
     arrive: function (i) {
       var f = NOTES[i % NOTES.length];
       beep(f, 0.22, 'triangle', 0.12, 0); beep(f * 1.25, 0.22, 'triangle', 0.12, 0.09); beep(f * 1.5, 0.4, 'triangle', 0.13, 0.18);
@@ -222,42 +230,29 @@
       t.appendChild(ti); t.appendChild(go); topEl.appendChild(t);
       var b = document.createElement('div'); b.className = 'cell';
       var bi = document.createElement('input');
-      bi.value = results[i] != null ? results[i] : DEF_RESULTS[i]; bi.setAttribute('aria-label', (i + 1) + '번째 결과');
+      bi.value = results[i] != null ? results[i] : defResult(i); bi.setAttribute('aria-label', (i + 1) + '번째 결과');
       b.appendChild(bi); bottomEl.appendChild(b);
     }
-    document.getElementById('n').textContent = n + '명';
+    nSel.value = n; boardEl.classList.toggle('dense', n > 6); boardEl.style.minWidth = n > 6 ? n * 58 + 'px' : '0';
     document.getElementById('minus').disabled = n <= MIN;
     document.getElementById('plus').disabled = n >= MAX;
   }
   function reset() {
+    timers.forEach(clearTimeout); timers = [];
     done = {}; anim = {}; parts = [];
     [].forEach.call(bottomEl.querySelectorAll('input'), function (e) { e.classList.remove('hit'); });
     [].forEach.call(topEl.querySelectorAll('.go'), function (e) { e.disabled = false; });
     draw();
   }
   function rollLook() {
-    var prev = shape; while (SHAPES.length > 1 && shape === prev) shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-    bends = bridges.map(function (row) { return row.map(function (t) { return t === 1 && Math.random() < 0.4 ? (Math.random() < .5 ? -1 : 1) * (7 + Math.random() * 9) : 0; }); });
-    shapeEl.textContent = '오늘의 모양 · ' + shape.name;
+    bends = bridges.map(function (row) { return row.map(function () { return 0; }); });
   }
   function newLadder() { readInputs(); bridges = makeBridges(); rollLook(); buildCells(); reset(); }
 
   /* ---------- 그리기 ---------- */
-  // 모양: w(t)=세로 위치 t(0~1)에서의 폭(0.3~1), s(t)=가로 이동. 양 끝은 결과칸에 맞춰 원래 간격으로 이어짐
-  var SHAPES = [
-    { name: '하트', s: function () { return 0; }, w: function (t) {
-      return t < 0.28 ? 0.5 + 0.5 * Math.sin(t / 0.28 * Math.PI / 2) : 1 - 0.74 * Math.pow((t - 0.28) / 0.72, 1.15); } },
-    { name: '다이아몬드', s: function () { return 0; }, w: function (t) { return 0.3 + 0.7 * Math.pow(1 - Math.abs(2 * t - 1), 0.9); } },
-    { name: '모래시계', s: function () { return 0; }, w: function (t) { return 1 - 0.68 * Math.pow(Math.sin(Math.PI * t), 2); } },
-    { name: '풍선', s: function () { return 0; }, w: function (t) { return 0.32 + 0.68 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.08)), 0.6); } },
-    { name: '물결', s: function (t) { return 0.1 * Math.sin(4 * Math.PI * t); }, w: function () { return 0.78; } },
-    { name: '별빛', s: function () { return 0; }, w: function (t) { return 0.5 + 0.5 * Math.abs(Math.sin(2.5 * Math.PI * t)); } }
-  ];
-  var shape = SHAPES[Math.floor(Math.random() * SHAPES.length)], bends = [];
-  function smooth(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+  var bends = [];
   function xAt(c, y, g) {
-    var t = y / g.h, e = smooth(Math.min(t, 1 - t) / 0.12), w = 1 + (shape.w(t) - 1) * e, sh = shape.s(t) * e;
-    return g.w * (0.5 + sh + (c - (n - 1) / 2) / n * w);
+    return g.w * (c + 0.5) / n;
   }
   function geom() {
     var w = cv.clientWidth, h = cv.clientHeight;
@@ -271,11 +266,9 @@
   function rungPts(c, nc, r, kind, g, out) {
     var y0 = g.y(r), k, u;
     if (kind === 2) {
-      var y1 = g.y(r + 1), ax = xAt(c, y0, g), bx = xAt(nc, y1, g), m = (y1 - y0) * 0.6;
+      var y1 = g.y(r + 1), ax = xAt(c, y0, g), bx = xAt(nc, y1, g);
       for (k = 1; k <= 16; k++) {
-        u = k / 16; var v = 1 - u;
-        out.push([v * v * v * ax + 3 * v * v * u * ax + 3 * v * u * u * bx + u * u * u * bx,
-                  v * v * v * y0 + 3 * v * v * u * (y0 + m) + 3 * v * u * u * (y1 - m) + u * u * u * y1]);
+        u = k / 16; out.push([ax + (bx - ax) * u, y0 + (y1 - y0) * u]);
       }
     } else {
       var x0 = xAt(c, y0, g), x1 = xAt(nc, y0, g), bd = bends[r] ? bends[r][Math.min(c, nc)] : 0;
@@ -329,13 +322,6 @@
     ctx.clearRect(0, 0, g.w, g.h);
     var rail = [], pl;
     for (c = 0; c < n; c++) { var rp = [[xAt(c, 0, g), 0]]; railPts(c, 0, g.h, g, rp); rail.push(rp); }
-    // 모양 실루엣 (바깥 두 줄 사이를 은은하게 채움)
-    ctx.beginPath();
-    rail[0].forEach(function (q, k) { k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-    rail[n - 1].slice().reverse().forEach(function (q) { ctx.lineTo(q[0], q[1]); });
-    ctx.closePath();
-    var gr = ctx.createLinearGradient(0, 0, 0, g.h); gr.addColorStop(0, 'rgba(103,232,249,.10)'); gr.addColorStop(.5, 'rgba(167,139,250,.14)'); gr.addColorStop(1, 'rgba(244,114,182,.10)');
-    ctx.fillStyle = gr; ctx.fill();
     ctx.strokeStyle = 'rgba(190,200,255,.26)'; ctx.lineWidth = 3; ctx.lineCap = ctx.lineJoin = 'round';
     for (c = 0; c < n; c++) { ctx.beginPath(); rail[c].forEach(function (q, k) { k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke(); }
     for (r = 0; r < ROWS; r++) for (i = 0; i < n - 1; i++) if (bridges[r][i]) {
@@ -397,10 +383,17 @@
     if (!raf) raf = requestAnimationFrame(tick);
   }
 
-  document.getElementById('all').addEventListener('click', function () { for (var i = 0; i < n; i++) run(i); });
+  document.getElementById('all').addEventListener('click', function () {
+    for (var i = 0; i < n; i++) (function (i) {
+      if (n <= 6) return run(i);
+      topEl.querySelectorAll('.go')[i].disabled = true;
+      timers.push(setTimeout(function () { topEl.querySelectorAll('.go')[i].disabled = false; run(i); }, i * 90));
+    })(i);
+  });
   document.getElementById('shuffle').addEventListener('click', function () { sfx.click(); newLadder(); });
   document.getElementById('minus').addEventListener('click', function () { if (n > MIN) { sfx.click(); readInputs(); n--; names.length = results.length = n; newLadder(); } });
   document.getElementById('plus').addEventListener('click', function () { if (n < MAX) { sfx.click(); readInputs(); n++; newLadder(); } });
+  nSel.addEventListener('change', function () { sfx.click(); readInputs(); n = +nSel.value; newLadder(); });
   window.addEventListener('resize', draw);
 
   window.ladder = { trace: trace, points: points, get n() { return n; }, get bridges() { return bridges; } };
