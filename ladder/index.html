@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사다리타기</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --text: #1d2433; --muted: #6b7388;
+    --line: #c9cfdd; --accent: #4f46e5; --accent-text: #ffffff; --border: #dfe3ee;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12141c; --card: #1b1f2b; --text: #eceff7; --muted: #98a1b8;
+      --line: #4a5167; --accent: #818cf8; --accent-text: #12141c; --border: #2d3345; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    padding: 24px 16px; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .controls .count { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  button { font: inherit; cursor: pointer; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); padding: 7px 12px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .count button { width: 34px; padding: 6px 0; }
+  .count output { min-width: 3.2em; text-align: center; font-weight: 600; }
+  .row { display: grid; gap: 6px; }
+  .cell { min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+  .cell input { width: 100%; min-width: 0; font: inherit; text-align: center; padding: 6px 2px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+  .cell .go { padding: 5px 0; font-weight: 600; color: #fff; border: 0; }
+  .cell .go:disabled { opacity: .45; }
+  .result input.hit { outline: 3px solid var(--hit); font-weight: 700; }
+  canvas { display: block; width: 100%; height: 360px; margin: 8px 0; }
+  .hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>사다리타기</h1>
+  <p class="sub">이름과 결과를 적고, 이름 아래 ▶ 버튼을 눌러 출발하세요. 결과는 미리 공개되어 있습니다.</p>
+  <div class="card">
+    <div class="controls">
+      <div class="count">
+        <button id="minus" aria-label="인원 줄이기">−</button>
+        <output id="n">4명</output>
+        <button id="plus" aria-label="인원 늘리기">+</button>
+      </div>
+      <button id="all" class="primary">전체 출발</button>
+      <button id="shuffle">다시 섞기</button>
+    </div>
+    <div class="row" id="top"></div>
+    <canvas id="cv"></canvas>
+    <div class="row result" id="bottom"></div>
+    <p class="hint">결과 칸을 고쳐 쓴 뒤 "다시 섞기"를 누르면 새 사다리가 만들어집니다.</p>
+  </div>
+</main>
+<script>
+(function () {
+  var MIN = 2, MAX = 6, ROWS = 12;
+  var COLORS = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#9333ea', '#0891b2'];
+  var DEF_RESULTS = ['당첨', '꽝', '꽝', '꽝', '꽝', '꽝'];
+
+  var n = 4;
+  var names = [], results = [];
+  var bridges = [];          // bridges[r][i] === true: i열과 i+1열 사이에 가로줄
+  var done = {};             // 시작 열 -> true (경로 확정)
+  var anim = {};             // 시작 열 -> {pts, total, t0}
+  var raf = 0;
+
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  var top = document.getElementById('top'), bottom = document.getElementById('bottom');
+
+  function makeBridges() {
+    var b = [];
+    for (var r = 0; r < ROWS; r++) {
+      var row = [];
+      for (var i = 0; i < n - 1; i++) row.push(!row[i - 1] && Math.random() < 0.5);
+      b.push(row);
+    }
+    // 모든 칸 사이에 최소 하나의 가로줄이 있도록 보정
+    for (var i = 0; i < n - 1; i++) {
+      var has = false;
+      for (var r = 0; r < ROWS; r++) if (b[r][i]) has = true;
+      if (!has) {
+        var cands = [];
+        for (var r = 0; r < ROWS; r++) if (!b[r][i - 1] && !b[r][i + 1]) cands.push(r);
+        if (cands.length) b[cands[Math.floor(Math.random() * cands.length)]][i] = true;
+      }
+    }
+    return b;
+  }
+
+  // 시작 열에서 내려가며 거치는 (열, 행) 경로와 도착 열을 계산
+  function trace(start) {
+    var c = start, steps = [{ c: c, r: 0 }];
+    for (var r = 0; r < ROWS; r++) {
+      var nc = c;
+      if (bridges[r][c]) nc = c + 1;
+      else if (c > 0 && bridges[r][c - 1]) nc = c - 1;
+      steps.push({ c: c, r: r, mid: true });
+      if (nc !== c) steps.push({ c: nc, r: r, mid: true });
+      c = nc;
+    }
+    return { steps: steps, end: c };
+  }
+
+  function readInputs() {
+    names = [].map.call(top.querySelectorAll('input'), function (e) { return e.value; });
+    results = [].map.call(bottom.querySelectorAll('input'), function (e) { return e.value; });
+  }
+
+  function buildCells() {
+    top.style.gridTemplateColumns = bottom.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+    top.innerHTML = bottom.innerHTML = '';
+    for (var i = 0; i < n; i++) {
+      var t = document.createElement('div'); t.className = 'cell';
+      var ti = document.createElement('input');
+      ti.value = names[i] != null ? names[i] : (i + 1) + '번'; ti.setAttribute('aria-label', (i + 1) + '번째 참가자 이름');
+      var go = document.createElement('button'); go.className = 'go'; go.textContent = '▶';
+      go.style.background = COLORS[i]; go.dataset.i = i; go.setAttribute('aria-label', (i + 1) + '번째 참가자 출발');
+      go.addEventListener('click', function () { run(+this.dataset.i); });
+      t.appendChild(ti); t.appendChild(go); top.appendChild(t);
+
+      var b = document.createElement('div'); b.className = 'cell';
+      var bi = document.createElement('input');
+      bi.value = results[i] != null ? results[i] : DEF_RESULTS[i]; bi.setAttribute('aria-label', (i + 1) + '번째 결과');
+      b.appendChild(bi); bottom.appendChild(b);
+    }
+    document.getElementById('n').textContent = n + '명';
+    document.getElementById('minus').disabled = n <= MIN;
+    document.getElementById('plus').disabled = n >= MAX;
+  }
+
+  function reset() {
+    cancelAnimationFrame(raf); raf = 0;
+    done = {}; anim = {};
+    [].forEach.call(bottom.querySelectorAll('input'), function (e) { e.classList.remove('hit'); });
+    [].forEach.call(top.querySelectorAll('.go'), function (e) { e.disabled = false; });
+    draw();
+  }
+
+  function newLadder() { readInputs(); bridges = makeBridges(); buildCells(); reset(); }
+
+  function geom() {
+    var w = cv.clientWidth, h = cv.clientHeight;
+    return { w: w, h: h, x: function (c) { return (c + 0.5) * w / n; }, y: function (r) { return (r + 0.5) * h / ROWS; }, top: 0, bot: h };
+  }
+
+  function points(start) {
+    var g = geom(), t = trace(start), pts = [[g.x(start), 0]], c = start;
+    for (var r = 0; r < ROWS; r++) {
+      var y = g.y(r);
+      pts.push([g.x(c), y]);
+      var nc = bridges[r][c] ? c + 1 : (c > 0 && bridges[r][c - 1] ? c - 1 : c);
+      if (nc !== c) { pts.push([g.x(nc), y]); c = nc; }
+    }
+    pts.push([g.x(c), g.h]);
+    var total = 0;
+    for (var k = 1; k < pts.length; k++) total += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+    return { pts: pts, total: total, end: t.end };
+  }
+
+  function strokePath(pts, len, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    var left = len;
+    for (var k = 1; k < pts.length && left > 0; k++) {
+      var dx = pts[k][0] - pts[k - 1][0], dy = pts[k][1] - pts[k - 1][1], d = Math.hypot(dx, dy);
+      if (d <= left) { ctx.lineTo(pts[k][0], pts[k][1]); left -= d; }
+      else { ctx.lineTo(pts[k - 1][0] + dx * left / d, pts[k - 1][1] + dy * left / d); left = 0; }
+    }
+    ctx.stroke();
+  }
+
+  function draw() {
+    var dpr = window.devicePixelRatio || 1, g = geom();
+    if (cv.width !== Math.round(g.w * dpr) || cv.height !== Math.round(g.h * dpr)) {
+      cv.width = Math.round(g.w * dpr); cv.height = Math.round(g.h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, g.w, g.h);
+    var line = getComputedStyle(document.documentElement).getPropertyValue('--line').trim();
+    ctx.strokeStyle = line; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (var c = 0; c < n; c++) { ctx.beginPath(); ctx.moveTo(g.x(c), 0); ctx.lineTo(g.x(c), g.h); ctx.stroke(); }
+    for (var r = 0; r < ROWS; r++) for (var i = 0; i < n - 1; i++) if (bridges[r][i]) {
+      ctx.beginPath(); ctx.moveTo(g.x(i), g.y(r)); ctx.lineTo(g.x(i + 1), g.y(r)); ctx.stroke();
+    }
+    Object.keys(done).forEach(function (s) { var p = points(+s); strokePath(p.pts, p.total, COLORS[s], 5); });
+    var now = performance.now();
+    Object.keys(anim).forEach(function (s) {
+      var a = anim[s], len = Math.min(a.p.total, (now - a.t0) * 0.55);
+      strokePath(a.p.pts, len, COLORS[s], 5);
+    });
+  }
+
+  function tick() {
+    var now = performance.now(), active = false;
+    Object.keys(anim).forEach(function (s) {
+      var a = anim[s];
+      if ((now - a.t0) * 0.55 >= a.p.total) {
+        done[s] = true; delete anim[s];
+        var inp = bottom.querySelectorAll('input')[a.p.end];
+        inp.style.setProperty('--hit', COLORS[s]); inp.classList.add('hit');
+      } else active = true;
+    });
+    draw();
+    raf = active ? requestAnimationFrame(tick) : 0;
+  }
+
+  function run(i) {
+    if (done[i] || anim[i]) return;
+    top.querySelectorAll('.go')[i].disabled = true;
+    anim[i] = { p: points(i), t0: performance.now() };
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+
+  document.getElementById('all').addEventListener('click', function () { for (var i = 0; i < n; i++) run(i); });
+  document.getElementById('shuffle').addEventListener('click', newLadder);
+  document.getElementById('minus').addEventListener('click', function () { if (n > MIN) { readInputs(); n--; names.length = results.length = n; newLadder(); } });
+  document.getElementById('plus').addEventListener('click', function () { if (n < MAX) { readInputs(); n++; newLadder(); } });
+  window.addEventListener('resize', draw);
+
+  window.ladder = { trace: trace, get n() { return n; }, get bridges() { return bridges; } };
+  bridges = makeBridges(); buildCells(); draw();
+})();
+</script>
+</body>
+</html>
