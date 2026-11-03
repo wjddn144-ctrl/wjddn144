@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>three.js 예제</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }
+    canvas { display: block; }
+    #hint { position: fixed; top: 12px; left: 12px; color: #fff; font: 14px system-ui; opacity: .7; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "../node_modules/three/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="hint">마우스를 움직여 시점을 바꿔 보세요</div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
